@@ -3,13 +3,18 @@
   "name": "Tab Saver",
   "version": "0.1",
   "description": "Save and restore tab sessions",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "{b38f88ac-9477-4c9b-a81a-0e532427d14a}"
+    }
+  },
   "icons": {
-    "48": "icon-48.png"
+    "64": "icon-64.png"
   },
   "permissions": ["tabs", "storage"],
   "action": {
     "default_icon": {
-      "48": "icon-48.png"
+      "64": "icon-64.png"
     },
     "default_title": "Tab Saver",
     "default_popup": "popup.html",
