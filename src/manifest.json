@@ -17,8 +17,7 @@
       "64": "icon-64.png"
     },
     "default_title": "Tab Saver",
-    "default_popup": "popup.html",
-    "default_width": 420
+    "default_popup": "popup.html"
   },
   "background": {
     "scripts": ["background.js"],
