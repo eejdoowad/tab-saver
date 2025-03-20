@@ -52,7 +52,6 @@ async function renameSession(sessionId, newName) {
     });
 
     await browser.storage.local.set({ sessions: updatedSessions });
-    console.log(`Session ${sessionId} renamed to "${newName}"`);
   } catch (error) {
     console.error(`Error renaming session ${sessionId}:`, error);
   }
@@ -93,8 +92,6 @@ async function moveToTrash(sessionId) {
       sessions: updatedSessions,
       trashSessions: updatedTrashSessions,
     });
-
-    console.log(`Session ${sessionId} moved to trash`);
   } catch (error) {
     console.error(`Error moving session ${sessionId} to trash:`, error);
   }

@@ -1345,7 +1345,6 @@ async function reorderSessionsInStorage(fromIndex, toIndex) {
 
     // Save back to storage
     await browser.storage.local.set({ sessions });
-    console.log(`Reordered session from position ${fromIndex} to ${toIndex}`);
   } catch (error) {
     console.error("Error reordering sessions:", error);
   }
@@ -1470,9 +1469,6 @@ async function reorderTrashSessionsInStorage(fromIndex, toIndex) {
 
     // Save back to storage
     await browser.storage.local.set({ trashSessions });
-    console.log(
-      `Reordered trash session from position ${fromIndex} to ${toIndex}`,
-    );
   } catch (error) {
     console.error("Error reordering trash sessions:", error);
   }
