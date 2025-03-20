@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tab Saver</title>
+    <style>
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            width: 100%;
+            min-width: 420px;
+            min-height: 500px;
+            height: 100%;
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        * {
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #3367d6;
+        }
+        .session-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+        }
+        .session-item {
+            padding: 8px 12px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin: 0;
+            border-radius: 0;
+            cursor: pointer;
+            transition: background-color 0.2s, box-shadow 0.2s;
+        }
+        .session-item:hover {
+            background-color: #f8f9fa;
+        }
+        .session-item.dragging {
+            opacity: 0.7;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background-color: #f1f3f4;
+            cursor: grabbing;
+            position: relative;
+            z-index: 100;
+            pointer-events: none;
+        }
+        .session-item.drag-over {
+            border-top: 2px solid #4285f4;
+            padding-top: 10px;
+        }
+        .draft-session {
+            background-color: #f8f9fa;
+            transition: background-color 0.2s;
+            border-bottom: 1px solid #dadce0;
+            margin: 0;
+            padding: 6px 12px;
+            border-radius: 0;
+            cursor: default; /* Draft session is not draggable */
+        }
+        .draft-session:hover {
+            background-color: #f1f3f4;
+            cursor: pointer;
+        }
+        .draft-session .session-title {
+            cursor: pointer;
+        }
+        .draft-session .session-title:hover {
+            background-color: transparent;
+            padding: 3px 0;
+            margin-left: 0;
+        }
+        .draft-session .session-title:hover::after {
+            content: none;
+        }
+        .session-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 28px; /* Set a fixed height for the row */
+        }
+        .title-container {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            min-width: 0;
+            max-width: calc(100% - 120px);
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .draft-session .title-container {
+            max-width: calc(100% - 60px);
+        }
+        .session-title {
+            font-weight: 500;
+            font-size: 13px;
+            padding: 2px 0;
+            margin-left: 0;
+            border-radius: 3px;
+            transition: background-color 0.2s;
+            position: relative;
+            display: inline-block;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .session-title:hover {
+            background-color: #f0f0f0;
+            cursor: pointer;
+            padding: 2px 4px;
+            margin-left: -4px;
+        }
+        .session-title:focus {
+            background-color: #e0e0e0;
+            outline: none;
+            box-shadow: 0 0 0 2px #4285f4;
+            padding: 2px 4px;
+            margin-left: -4px;
+        }
+        .session-title:hover::after {
+            content: "✏️";
+            font-size: 11px;
+            margin-left: 4px;
+            opacity: 0.6;
+            vertical-align: middle;
+        }
+        .session-date {
+            font-size: 11px;
+            color: #808080;
+            margin-top: 2px;
+            margin-left: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: none; /* Hide timestamp in main view */
+        }
+        .session-actions {
+            display: flex;
+            gap: 10px;
+            margin-left: 10px;
+            flex-shrink: 0;
+            min-width: 105px;
+            justify-content: flex-end;
+            align-items: center;
+            height: 100%;
+            position: relative;
+        }
+        
+        /* Create invisible click zones for the buttons */
+        .session-actions::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                rgba(0,0,0,0.01) 25%, 
+                rgba(0,0,0,0.02) 25%, 
+                rgba(0,0,0,0.02) 50%, 
+                rgba(0,0,0,0.03) 50%, 
+                rgba(0,0,0,0.03) 75%, 
+                rgba(0,0,0,0.04) 75%);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        
+        .session-item:hover .session-actions::before {
+            opacity: 1;
+        }
+        .restore-btn, .new-window-btn, .delete-btn, .show-tabs-btn, .save-btn, .undelete-btn, .delete-forever-btn {
+            font-size: 14px;
+            background: none;
+            border: none;
+            color: #808080;
+            padding: 3px;
+            margin: 0;
+            width: 24px;
+            height: 100%;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s, color 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .restore-btn:hover, .new-window-btn:hover, .delete-btn:hover, .show-tabs-btn:hover, .save-btn:hover, .undelete-btn:hover, .delete-forever-btn:hover {
+            opacity: 1;
+            background: none;
+        }
+        .restore-btn:hover {
+            color: #4285f4;
+        }
+        .new-window-btn:hover {
+            color: #34a853;
+        }
+        .delete-btn:hover {
+            color: #ea4335;
+        }
+        .show-tabs-btn:hover, .show-tabs-btn.active {
+            color: #4285f4;
+            opacity: 1;
+        }
+        /* Add rotation animation for the dropdown icon */
+        .show-tabs-btn {
+            transition: transform 0.2s ease;
+        }
+        .show-tabs-btn.active {
+            transform: rotate(180deg);
+        }
+        .save-btn {
+            font-size: 18px;
+            color: #fbbc05;
+            opacity: 0.9;
+            padding-right: 0;
+        }
+        .save-btn:hover {
+            color: #f29900;
+            opacity: 1;
+        }
+        .undelete-btn:hover {
+            color: #34a853;
+        }
+        .delete-forever-btn:hover {
+            color: #ea4335;
+        }
+        /* Styles for the tab list container */
+        .tab-list-container {
+            width: 100%;
+            margin-top: 8px;
+        }
+        .tab-list {
+            margin-top: 6px;
+            margin-left: 12px;
+            font-size: 11px;
+        }
+        .tab-item {
+            padding: 4px 0;
+            border-bottom: 1px solid #f0f0f0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .tab-item:last-child {
+            border-bottom: none;
+        }
+        .tab-title {
+            font-weight: 500;
+            font-size: 11px;
+            display: block;
+            margin-bottom: 2px;
+        }
+        .tab-url {
+            color: #5f6368;
+            font-size: 10px;
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .draft-session .session-actions {
+            padding-right: 8px;
+        }
+        /* View containers */
+        #mainView, #trashView, #exportView {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 auto;
+            overflow: hidden;
+            min-height: 0; /* Important for Firefox */
+        }
+        #trashView, #exportView {
+            display: none;
+        }
+        #exportView {
+            overflow: hidden;
+            position: relative;
+        }
+        /* Subtle Navigation Toggle */
+        .view-toggle {
+            height: 22px;
+            min-height: 22px;
+            flex: 0 0 auto; /* Never grow or shrink */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #9aa0a6;
+            font-size: 10px;
+            border-top: 1px solid #eaeaea;
+            background-color: #f9f9fa;
+            user-select: none;
+            transition: all 0.2s ease;
+            width: 100%;
+            position: relative;
+            z-index: 10;
+        }
+        .view-toggle-tabs {
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }
+        .view-tab {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            height: 100%;
+            position: relative;
+            transition: all 0.2s ease;
+            border-bottom: 2px solid transparent;
+        }
+        .view-tab.active {
+            color: #5f8aca;
+            border-bottom-color: #5f8aca;
+            background-color: rgba(95, 138, 202, 0.03);
+            font-weight: 500;
+        }
+        .view-tab:not(.active):hover {
+            background-color: rgba(0, 0, 0, 0.02);
+            color: #666;
+        }
+        .view-tab + .view-tab {
+            border-left: 1px solid #eaeaea;
+        }
+        /* Data view styles */
+        .data-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            height: 100%;
+            overflow: hidden;
+            box-sizing: border-box;
+            min-height: 0; /* Important for Firefox */
+        }
+        .data-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-shrink: 0;
+        }
+        .data-title {
+            font-weight: 500;
+            font-size: 14px;
+            color: #5f6368;
+        }
+        .data-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .data-textarea {
+            flex: 1 1 auto;
+            border: 1px solid #dadce0;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            margin-bottom: 0;
+            width: 680px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: normal;
+            tab-size: 2;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+            background-color: #ffffff;
+            color: #333333;
+            resize: none;
+        }
+        .data-textarea:focus {
+            outline: none;
+            border-color: #4285f4;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1), 0 0 0 1px #4285f4;
+        }
+        .copy-btn {
+            background: none;
+            border: none;
+            color: #5f6368;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+        .copy-btn:hover {
+            color: #202124;
+            background-color: #f1f3f4;
+        }
+        .save-data-btn {
+            background: none;
+            border: none;
+            color: #34a853;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+        .save-data-btn:hover {
+            color: #0f7b30;
+            background-color: #e6f4ea;
+        }
+        .save-data-btn:disabled {
+            color: #9aa0a6;
+            cursor: not-allowed;
+        }
+        .revert-btn {
+            background: none;
+            border: none;
+            color: #5f6368;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+        .revert-btn:hover {
+            color: #ea4335;
+            background-color: #fce8e6;
+        }
+        .revert-btn:disabled {
+            color: #9aa0a6;
+            cursor: not-allowed;
+        }
+        .data-status-message {
+            margin: 3px 0 6px;
+            padding: 4px 8px;
+            font-size: 11px;
+            border-radius: 4px;
+            min-height: 16px;
+            flex-shrink: 0; /* Prevent shrinking */
+            transition: all 0.3s ease;
+            display: none;
+        }
+        .data-status-message.success {
+            display: block;
+            background-color: #e6f4ea;
+            color: #0f7b30;
+            border: 1px solid #b7e4c7;
+        }
+        .data-status-message.error {
+            display: block;
+            background-color: #fce8e6;
+            color: #c5221f;
+            border: 1px solid #f6bbb7;
+        }
+        .tab-list-container .session-date {
+            display: block; /* Show timestamp in the details section */
+            margin-bottom: 6px;
+            padding-left: 12px;
+            font-size: 10px;
+            color: #808080;
+        }
+        #trashView .draft-session {
+            cursor: pointer; /* Make it clear the empty trash item is clickable */
+        }
+        #trashView .draft-session:hover {
+            background-color: #f1f3f4;
+        }
+    </style>
+</head>
+<body>
+    <div id="mainView">
+        <div class="session-list">
+            <!-- Draft session for saving current tabs -->
+            <div id="draftSession" class="session-item draft-session">
+                <div class="session-info">
+                    <div class="title-container">
+                        <span class="session-title">Save Tabs</span>
+                        <span class="session-date">Create a session from open tabs</span>
+                    </div>
+                    <div class="session-actions">
+                        <button id="saveSession" class="save-btn" title="Save Tabs">💾︎</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="sessions">
+                <!-- Saved sessions will be displayed here -->
+            </div>
+        </div>
+    </div>
+    
+    <div id="trashView">
+        <div class="session-list">
+            <!-- Trash description item -->
+            <div class="session-item draft-session">
+                <div class="session-info">
+                    <div class="title-container">
+                        <span class="session-title">Empty Trash</span>
+                        <span class="session-date">Permanently delete all trash items</span>
+                    </div>
+                    <div class="session-actions">
+                        <button id="emptyTrashBtn" class="delete-forever-btn" title="Empty Trash">🗑︎</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="trashSessions">
+                <!-- Trash sessions will be displayed here -->
+            </div>
+        </div>
+    </div>
+    
+    <div id="exportView">
+        <div class="data-container">
+            <div class="data-header">
+                <div class="data-actions">
+                    <button id="saveDataBtn" class="save-data-btn" title="Save Changes">💾︎ Save</button>
+                    <button id="revertDataBtn" class="revert-btn" title="Revert Changes">↩︎ Revert</button>
+                    <button id="copyJsonBtn" class="copy-btn" title="Copy to Clipboard">📋︎ Copy</button>
+                </div>
+            </div>
+            <div id="dataStatusMessage" class="data-status-message"></div>
+            <textarea id="exportTextarea" class="data-textarea" spellcheck="false"></textarea>
+        </div>
+    </div>
+
+    <div id="viewToggle" class="view-toggle">
+        <div class="view-toggle-tabs">
+            <div id="sessionTab" class="view-tab active">Sessions</div>
+            <div id="trashTab" class="view-tab">Trash</div>
+            <div id="dataTab" class="view-tab">Data</div>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
