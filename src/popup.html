@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tab Saver</title>
+    <link rel="stylesheet" href="popup.css">
     <style>
         html {
             margin: 0;
@@ -68,9 +69,13 @@
             z-index: 100;
             pointer-events: none;
         }
-        .session-item.drag-over {
+        .session-item.drag-over-top {
             border-top: 2px solid #4285f4;
-            padding-top: 10px;
+            padding-top: 6px;
+        }
+        .session-item.drag-over-bottom {
+            border-bottom: 2px solid #4285f4;
+            padding-bottom: 6px;
         }
         .draft-session {
             background-color: #f8f9fa;
@@ -96,6 +101,7 @@
         .draft-session .session-title:hover::after {
             content: none;
         }
+        
         .session-info {
             display: flex;
             justify-content: space-between;
@@ -121,7 +127,7 @@
             padding: 2px 0;
             margin-left: 0;
             border-radius: 3px;
-            transition: background-color 0.2s;
+            transition: color 0.2s;
             position: relative;
             display: inline-block;
             max-width: 100%;
@@ -130,24 +136,42 @@
             white-space: nowrap;
         }
         .session-title:hover {
-            background-color: #f0f0f0;
             cursor: pointer;
-            padding: 2px 4px;
-            margin-left: -4px;
         }
         .session-title:focus {
-            background-color: #e0e0e0;
             outline: none;
-            box-shadow: 0 0 0 2px #4285f4;
-            padding: 2px 4px;
-            margin-left: -4px;
+            border-bottom: 1px dashed #4285f4;
+            overflow: visible;
+            text-overflow: clip;
+            min-width: 50px;
+            /* Ensure it's always visible when editing */
+            white-space: normal;
+            word-break: break-word;
+        }
+        .session-title[contenteditable="true"] {
+            background-color: #f8f9fa;
+            border: 1px solid #dadce0;
+            border-radius: 2px;
+            padding: 1px 3px;
+            min-width: 120px;
+            outline: none;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
         }
         .session-title:hover::after {
-            content: "✏️";
-            font-size: 11px;
-            margin-left: 4px;
-            opacity: 0.6;
-            vertical-align: middle;
+            content: none;
+        }
+        .session-title[contenteditable="true"]::after {
+            content: "";
+            position: absolute;
+            right: -3px;
+            top: 50%;
+            height: 10px;
+            width: 1px;
+            background-color: #4285f4;
+            animation: blink 1s infinite;
         }
         .session-date {
             font-size: 11px;
@@ -164,7 +188,7 @@
             gap: 10px;
             margin-left: 10px;
             flex-shrink: 0;
-            min-width: 105px;
+            min-width: 50px; /* Adjusted for fewer buttons */
             justify-content: flex-end;
             align-items: center;
             height: 100%;
@@ -180,21 +204,65 @@
             width: 100%;
             height: 100%;
             background: linear-gradient(90deg, 
-                rgba(0,0,0,0.01) 25%, 
-                rgba(0,0,0,0.02) 25%, 
-                rgba(0,0,0,0.02) 50%, 
-                rgba(0,0,0,0.03) 50%, 
-                rgba(0,0,0,0.03) 75%, 
-                rgba(0,0,0,0.04) 75%);
+                rgba(0,0,0,0.01) 50%, 
+                rgba(0,0,0,0.02) 50%);
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.2s;
         }
+
+        /* Button styles for consistent appearance */
+        .session-actions button {
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .quick-delete-forever-btn {
+            display: none !important;
+            color: #ea4335 !important;
+            font-size: 16px !important;
+            opacity: 0.9 !important;
+        }
+
+        .session-item.editing .new-window-btn {
+            display: none !important;
+        }
+
+        .session-item.editing .undelete-btn {
+            display: none !important;
+        }
+
+        .session-item.editing .quick-delete-forever-btn {
+            display: flex !important;
+        }
+
+        .quick-delete-forever-btn:hover {
+            color: #c5221f !important;
+            opacity: 1 !important;
+        } 
         
         .session-item:hover .session-actions::before {
             opacity: 1;
         }
-        .restore-btn, .new-window-btn, .delete-btn, .show-tabs-btn, .save-btn, .undelete-btn, .delete-forever-btn {
+        
+        /* Hide buttons by default, except for draft session */
+        .session-item:not(.draft-session) .session-actions button {
+            opacity: 0;
+            transition: opacity 0.2s ease, color 0.2s ease;
+        }
+        
+        /* Show buttons on hover */
+        .session-item:hover .session-actions button {
+            opacity: 0.7;
+        }
+        
+        /* Always show buttons in draft session */
+        .draft-session .session-actions button {
+            opacity: 0.9;
+        }
+        
+        .restore-btn, .new-window-btn, .delete-btn, .show-tabs-btn, .save-btn, .undelete-btn, .delete-forever-btn, .edit-btn, .quick-delete-forever-btn {
             font-size: 14px;
             background: none;
             border: none;
@@ -204,23 +272,24 @@
             width: 24px;
             height: 100%;
             cursor: pointer;
-            opacity: 0.7;
-            transition: opacity 0.2s, color 0.2s;
             display: inline-flex;
             align-items: center;
             justify-content: center;
         }
-        .restore-btn:hover, .new-window-btn:hover, .delete-btn:hover, .show-tabs-btn:hover, .save-btn:hover, .undelete-btn:hover, .delete-forever-btn:hover {
+        .restore-btn:hover, .new-window-btn:hover, .delete-btn:hover, .show-tabs-btn:hover, .save-btn:hover, .undelete-btn:hover, .delete-forever-btn:hover, .edit-btn:hover, .quick-delete-forever-btn:hover {
             opacity: 1;
             background: none;
         }
-        .restore-btn:hover {
+        .restore-btn:hover, .undelete-btn:hover {
             color: #4285f4;
         }
         .new-window-btn:hover {
             color: #34a853;
         }
-        .delete-btn:hover {
+        .edit-btn:hover {
+            color: #4285f4;
+        }
+        .delete-btn:hover, .delete-forever-btn:hover {
             color: #ea4335;
         }
         .show-tabs-btn:hover, .show-tabs-btn.active {
@@ -249,6 +318,38 @@
         }
         .delete-forever-btn:hover {
             color: #ea4335;
+        }
+        /* New Edit Mode Components */
+        .edit-actions-container {
+            border-top: 1px solid #f0f0f0;
+            padding: 8px 12px;
+            margin-top: 8px;
+        }
+        .title-editor-container {
+            display: none;
+        }
+        .title-editor {
+            display: none;
+        }
+        .delete-button-container {
+            margin-top: 8px;
+        }
+        .delete-button-container .delete-btn,
+        .delete-button-container .delete-forever-btn {
+            width: auto;
+            font-size: 13px;
+            padding: 6px 10px;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+            color: #ea4335;
+            display: flex;
+            align-items: center;
+            border: 1px solid #dadce0;
+        }
+        .delete-button-container .delete-btn:hover,
+        .delete-button-container .delete-forever-btn:hover {
+            background-color: #fce8e6;
+            color: #c5221f;
         }
         /* Styles for the tab list container */
         .tab-list-container {
@@ -312,8 +413,8 @@
             align-items: center;
             color: #9aa0a6;
             font-size: 10px;
-            border-top: 1px solid #eaeaea;
-            background-color: #f9f9fa;
+            border-top: 1px solid #e0e0e0;
+            background-color: #f5f5f5;
             user-select: none;
             transition: all 0.2s ease;
             width: 100%;
@@ -335,19 +436,20 @@
             position: relative;
             transition: all 0.2s ease;
             border-bottom: 2px solid transparent;
+            color: #7d7d7d;
         }
         .view-tab.active {
-            color: #5f8aca;
-            border-bottom-color: #5f8aca;
-            background-color: rgba(95, 138, 202, 0.03);
+            color: #505050;
+            border-bottom-color: #b0b0b0;
+            background-color: rgba(0, 0, 0, 0.02);
             font-weight: 500;
         }
         .view-tab:not(.active):hover {
-            background-color: rgba(0, 0, 0, 0.02);
+            background-color: rgba(0, 0, 0, 0.04);
             color: #666;
         }
         .view-tab + .view-tab {
-            border-left: 1px solid #eaeaea;
+            border-left: 1px solid #e0e0e0;
         }
         /* Data view styles */
         .data-container {
@@ -493,6 +595,35 @@
         }
         #trashView .draft-session:hover {
             background-color: #f1f3f4;
+        }
+        /* Remove edit icon in new UI */
+        .session-item .session-title:hover::after {
+            content: none;
+        }
+        /* Make entire session item clickable */
+        .session-item {
+            cursor: pointer;
+        }
+        /* Style for session items in edit mode */
+        .session-item.editing {
+            background-color: #f8f9fa;
+        }
+        .session-item.editing .session-title::after {
+            content: "✏️";
+            font-size: 10px;
+            margin-left: 4px;
+            opacity: 0.7;
+        }
+        
+        /* Make edit state more obvious */
+        .session-item.editing {
+            background-color: #f8f9fa;
+            border-left: 2px solid #4285f4;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
         }
     </style>
 </head>
